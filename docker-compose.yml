@@ -1,0 +1,161 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+x-superset-image: &superset-image apache/superset:latest
+x-superset-depends-on: &superset-depends-on
+  - db
+  - redis
+x-superset-volumes: &superset-volumes
+  # /app/pythonpath_docker will be appended to the PYTHONPATH in the final container
+  - ./docker:/app/docker
+  - superset_home:/app/superset_home
+
+version: "3.7"
+services:
+  presto:
+    build: 
+      context: .
+      dockerfile: presto.Dockerfile
+    ports:
+      - 8080:8080
+    volumes:
+      - presto_file_hive_metastore:/etc/hive_metastore
+  redis:
+    image: redis:latest
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+  db:
+    env_file: docker/.env-non-dev
+    image: postgres:13
+    restart: unless-stopped
+    volumes:
+      - db_home:/var/lib/postgresql/data
+      - ./postgres_init/:/docker-entrypoint-initdb.d/
+  metastore:
+    build: ./metastore
+    volumes:
+      - hive-data:/opt/warehouse # /user/hive/warehouse is where hive standalone metastore keeps data
+    ports:
+      - 9083:9083 #Thrift port
+    depends_on:
+      - db
+      - minio
+  minio:
+    image: quay.io/minio/minio
+    command: ["server", "/data", "--console-address", ":9090"]
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=minio123
+    volumes:
+      - minio-data:/data
+    ports:
+      - 9090:9090
+      - 9000:9000
+  minio-init:
+    image: minio/mc # MinioClient image; use it to make buckets and perform any other tasks on startup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      /usr/bin/mc alias set myminio http://minio:9000 minio minio123;
+      /usr/bin/mc mb myminio/test;
+      /usr/bin/mc policy set public myminio/test;
+      /usr/bin/mc mb myminio/metastore;
+      /usr/bin/mc admin user svcacct add --access-key 'hiveaccesskey' --secret-key 'hivesupersecretkey' myminio minio;
+      exit 0;
+      "
+  aws:
+    image: amazon/aws-cli
+
+  superset:
+    env_file: docker/.env-non-dev
+    image: *superset-image
+    command: ["/app/docker/docker-bootstrap.sh", "app-gunicorn"]
+    user: "root"
+    restart: unless-stopped
+    ports:
+      - 8088:8088
+    depends_on: *superset-depends-on
+    volumes: *superset-volumes
+  superset-init:
+    image: *superset-image
+    command: ["/app/docker/docker-init.sh"]
+    env_file: docker/.env-non-dev
+    depends_on: *superset-depends-on
+    user: "root"
+    volumes: *superset-volumes
+  superset-worker:
+    image: *superset-image
+    command: ["/app/docker/docker-bootstrap.sh", "worker"]
+    env_file: docker/.env-non-dev
+    restart: unless-stopped
+    depends_on: *superset-depends-on
+    user: "root"
+    volumes: *superset-volumes
+  superset-worker-beat:
+    image: *superset-image
+    command: ["/app/docker/docker-bootstrap.sh", "beat"]
+    env_file: docker/.env-non-dev
+    restart: unless-stopped
+    depends_on: *superset-depends-on
+    user: "root"
+    volumes: *superset-volumes
+
+  # mongo:
+  #   image: mongo
+  #   restart: unless-stopped
+  #   environment:
+  #     MONGO_INITDB_DATABASE: mongo
+  #     MONGO_INITDB_ROOT_USERNAME: root
+  #     MONGO_INITDB_ROOT_PASSWORD: example
+  #   ports:
+  #     - 27017:27017
+  #   volumes:
+  #     - mongo_data:/data/db
+  
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.16.0
+  #   environment:
+  #     - "ES_JAVA_OPTS=-Xms1024m -Xmx2g"
+  #     - discovery.type=single-node
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #   volumes:
+  #     - elasticsearch_data:/usr/share/elasticsearch/data
+  #   ports:
+  #     - 9200:9200
+
+volumes:
+  superset_home:
+    external: false
+  db_home:
+    external: false
+  redis:
+    external: false
+  presto_file_hive_metastore:
+    external: false
+  minio-data:
+    external: false
+  hive-data:
+    external: false
+  # elasticsearch_data:
+  #   external: false
+  # mongo_data: 
+  #   external: false
