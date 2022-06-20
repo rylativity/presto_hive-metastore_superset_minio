@@ -1,9 +1,18 @@
 # Hive Standalone Metastore with Postgres Backend and Minio (S3 Compatible Object Storage) in Docker
 
-This project contains all files needed to set up and test a Hive Standalone Metastore.  The docker-compose.yml file defines the following services: a Postgres container (backend for Hive), a Hive Metastore Container, a Minio Container (which you can use as a drop-in replacement for AWS S3) for testing the Hive metastore on an Object Store, a Presto container for querying data out of S3(Minio) using the Hive Metastore, and the four services that make up Superset for dashboarding data through Presto.
+## Overview
+
+This project contains all configuration files needed to set up a modern distributed analytics environment, allowing you to query data where it lies (in this case, in a S3 object store, in ElasticSearch, and in MongoDB). The docker-compose.yml file defines the following services: a Postgres container (backend for Hive Metastore), a Hive Metastore Container, a Minio Container (which you can use as a drop-in replacement for AWS S3) for testing the Hive metastore on an Object Store, a Presto container for querying data out of S3(Minio) using the Hive Metastore, and the four services that make up Superset for dashboarding data through Presto.  There are also examples and usage instructions for interacting with the various services.
+
+The docker-compose.yml also defines an ElasticSearch service and a MongoDB service (both of which are commented out).  If you wish to use ElasticSearch and/or MongoDB, uncomment the relevant lines in the docker-compose.yml (including their volume definitions at the bottom of the docker-compose.yml), and modify the relevant filenames in presto/catalog to remove ".template" (e.g. elasticsearch.properties.template -> elasticsearch.properties).  Presto will read any files in the presto/catalog folder that ends with ".properties".
+
+## Pre-Requisites
+- Working installations of Docker and docker-compose (if you do not have either of these installed, Google the installation instructions, follow the official installation instructions for your operating system, and then return here to continue)
+- Experience with Docker & docker-compose (if you do not have experience with Docker or docker-compose, it would help to get some experience by following the official Docker quick-start guides; while not required, it will definitely be easier to understand this project if you understand Docker and docker-compose)
+- A high level understanding of Presto (or Trino), Hive Standalone Metastore, and S3 or Minio (if you don't know about any of these, spend a few minutes researching them and then return here to continue)
 
 ## Setup
-- Run `docker-compose up -d` (This will bring up the containers, initalize the metastore postgres database, create a 'test' bucket with public permissions in Minio, and create a Minio service account access-key/secret)
+- Run `docker-compose up -d` (This will bring up the containers, initalize the metastore postgres database, create a 'test' bucket with public permissions in Minio, and create a Minio service account access-key & secret-key)
 - Once the containers are running and the initialization is complete, run `./scripts_and_examples/dataload_scripts/load_taxidata_to_minio.sh` (This will download NYC Taxi Data from the year 2022 and store in in the public 'test' bucket in Minio)
 - Once the taxi data is available in Minio, you can exec into the Presto container to create the Hive schemas and tables.  Run `docker-compose exec presto presto` to open the Presto shell in the Presto container.  See ./dataload_scripts/presto_commands.txt for examples of how to create Hive schemas and tables. Alternatively, if you are using the NYC Taxi example data, you can run `./scripts_and_examples/dataload_scripts/register_presto_hive_tables.sh`, which will pass the commands in presto_commands.txt to the Presto shell in the Presto container for execution.
 
@@ -93,6 +102,7 @@ VALUES (1, 'first_username', 'USA'),
 - [ ] Update README.md with instructions for using example data & init scripts
 - [x] Add Superset to Project for Data Exploration
 - [x] Add instructions for using Superset
+- [ ] Add Spark+Jupyter & Delta containers and examples
 
 ## Tips & Troubleshooting
  - Stick with Minio bucketnames that use only lowercase letters and no special characters.  
