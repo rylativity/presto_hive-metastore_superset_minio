@@ -35,7 +35,42 @@ To add some sample data to Minio, run `./dataload_scripts/load_taxidata_to_minio
 ### Presto
 Once you have sample data in Minio, you can register schemas and tables in Hive using the Presto CLI.  If you loaded the sample NYC Yellow Cab trip data to Minio (as described above), you can run `./dataload_scripts/register_presto_hive_tables.sh`, which will execute the Presto commands to create a new schema and add a table with the external Minio data location as the source.
 
-***
+Example Commands - https://prestodb.io/docs/current/connector/hive.html#examples
+
+### Superset
+Superset is accessible at http://localhost:8088 (Username: admin, Password: admin) once you have gone through the setup steps.  To connect Superset to Presto using Superset's Presto connector, login to the Superset UI and add Presto as a Database (select "Data" > "Databases" > "+Database" > "Presto", the SQLALCHEMY URI should be "presto://presto:8080/hive" - the hostname/URL "presto" is simply the docker service name of presto).
+
+Once connected, Superset's SQL Lab Editor can be used as a frontend for the Presto query engine (which in turn can be used to query/manage data in of S3 using the Hive Standalone Metastore).
+
+The file scripts_and_examples/presto_commands.txt contains an example of using Presto to connect to a read-only dataset in S3.  To create a Presto managed dataset (i.e. read-write), first create a bucket in Minio (http://localhost:9090 after you've started the containers), and then run the commands below (substituting your S3 bucket name and your desired table structure) in the Superset SQL Lab Editor:
+```
+-- Create a Presto-managed Hive schema using the S3 bucket
+CREATE SCHEMA hive.mybucket
+WITH (location = 's3a://mybucket/');
+
+-- Create an example Hive table in the Presto-managed schema
+CREATE TABLE hive.mybucket.users (
+  user_id bigint,
+  username varchar,
+  country varchar
+)
+WITH (
+  format = 'ORC',
+  partitioned_by = ARRAY['country'],
+  bucketed_by = ARRAY['user_id'],
+  bucket_count = 50
+);
+
+-- Insert sample data into the Presto-managed Hive table
+INSERT INTO hive.mybucket.users (user_id, username, country)
+VALUES (1, 'first_username', 'USA'),
+        (2, 'second_username', 'Mexico');
+
+-- Drop tables and schemas if desired (YOU MUST STILL MANUALLY DELETE THE DATA FROM S3)
+-- DROP TABLE hive.mybucket.users;
+-- DROP SCHEMA hive.mybucket;
+```
+
 
 ## Roadmap
 - [x] Initalize Minio (by creating bucket and adding taxi Parquet data - https://registry.opendata.aws/nyc-tlc-trip-records-pds/) 
