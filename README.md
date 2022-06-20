@@ -21,6 +21,8 @@ Superset UI - TODO
 **TODO**
 
 ### Minio
+Minio is an S3-Compatible object store that can be run locally or on any cloud platform.  In other words, Minio is a free, drop-in replacement for S3 that you have full control over.  In addition to countless other uses, Minio is a great standin for S3 while doing local development.
+
 Credentials for Minio (including the admin username, password, and service account credentials) can be found in the docker-compose.yml file.
 
 You can access the minio console at http://localhost:9090. You can create buckets and upload files through the Minio Console.  
@@ -33,11 +35,22 @@ You can use the AWS CLI v2 to interact with a Minio bucket as if it were an S3 b
 To add some sample data to Minio, run `./dataload_scripts/load_taxidata_to_minio.sh`, which will download the NYC Yellow Cab trip data in parquet format and upload it to the Minio "test" bucket (which is created by the 'createbuckets' container defined in docker-compose.yml)
 
 ### Presto
+Presto is a distributed query engine that can connect to many different datasources including SQL databases, document databases (e.g. MongoDB), and even data files sitting in S3 (by leveraging a Hive Standalone Metastore).  Presto will even allow you to execute queries that pull in data from different datasources (e.g. you can query data from S3 and left join in a SQL table in a single query).
+
 Once you have sample data in Minio, you can register schemas and tables in Hive using the Presto CLI.  If you loaded the sample NYC Yellow Cab trip data to Minio (as described above), you can run `./dataload_scripts/register_presto_hive_tables.sh`, which will execute the Presto commands to create a new schema and add a table with the external Minio data location as the source.
 
 Example Commands - https://prestodb.io/docs/current/connector/hive.html#examples
 
+### Metastore (Hive Standalone Metastore)
+The Hive Metastore allows us to project a table-like structure onto data sitting in Minio (or S3).  We connect the Hive Metastore to Presto, and then use SQL commands issued to Presto to "create" tables out of data (JSON, CSV, ORC, PARQUET, etc...) in S3 and query the data.
+
+The Hive Metastore does not need to be interacted with directly.  Presto's Hive Connector is used to configure the connection with Presto (see the file presto/catalog/hive.properties), and Presto handles updating the Hive Metastore.
+
+If you are interested in seeing the contents of the Hive Metastore, you can use `docker-compose exec metastore bash` to open a terminal in the Hive Metastore container.  The actual Metastore data is stored at /etc/hive_metastore inside the container (Note: you will need to use `ls -a` to list the contents of folders in /etc/hive_metastore, since many of the files are "hidden")
+
 ### Superset
+Apache Superset is arguably one of the best BI tools available, ignoring the fact that it is completely free and open-source.  In this project, Superset serves as a front-end for Presto.  You can use its SQL Lab Editor to write and execute queries against any datasource registered in Presto, and you can use it to create visuals and dashboards.
+
 Superset is accessible at http://localhost:8088 (Username: admin, Password: admin) once you have gone through the setup steps.  To connect Superset to Presto using Superset's Presto connector, login to the Superset UI and add Presto as a Database (select "Data" > "Databases" > "+Database" > "Presto", the SQLALCHEMY URI should be "presto://presto:8080/hive" - the hostname/URL "presto" is simply the docker service name of presto).
 
 Once connected, Superset's SQL Lab Editor can be used as a frontend for the Presto query engine (which in turn can be used to query/manage data in of S3 using the Hive Standalone Metastore).
@@ -82,4 +95,4 @@ VALUES (1, 'first_username', 'USA'),
 - [x] Add instructions for using Superset
 
 ## Tips & Troubleshooting
- - Stick with bucketnames that use only lowercase letters and no special characters.  
+ - Stick with Minio bucketnames that use only lowercase letters and no special characters.  
