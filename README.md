@@ -1,4 +1,4 @@
-# Hive Standalone Metastore with Postgres Backend and Minio (S3 Compatible Object Storage) in Docker
+# Hive Standalone Metastore with Postgres Backend, Presto Query Engine, Minio (S3 Compatible Object Storage), and Superset Frontende in Docker
 
 ## Overview
 
