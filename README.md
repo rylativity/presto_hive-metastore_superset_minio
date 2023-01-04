@@ -1,4 +1,6 @@
-# Hive Standalone Metastore with Postgres Backend, Presto Query Engine, Minio (S3 Compatible Object Storage), and Superset Frontende in Docker
+# Hive Standalone Metastore with Postgres Backend, Presto Query Engine, Minio (S3 Compatible Object Storage), and Superset Frontend in Docker
+
+This project is no longer supported. For an actively supported project with similar (and additional) functionality, see https://github.com/rylativity/container-analytics-platform
 
 ## Overview
 
